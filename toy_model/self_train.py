@@ -5,15 +5,16 @@ import matplotlib.pyplot as plt
 
 
 class SelfTraining:
-    def __init__(self, eta, sigma, B, T, test_data):
+    def __init__(self, eta, sigma, B, T, test_data, test_labels):
         self.eta = eta
         self.sigma = sigma
         self.B = B
         self.T = T
         # test_data 是一个 list, 每个元素是一个 tensor, 表示若干个测试样本, 现在将其转换为一个 tensor
         # print(f'test_data: {len(test_data[0])}')
-        self.test_data = torch.stack(test_data[0], dim=0)
-        # self.test_data = test_data[0]
+        # self.test_data = torch.stack(test_data[0], dim=0)
+        self.test_data = test_data
+        self.test_labels = test_labels
     def plot_pseudolabelled_data(self, x_batch, pseudo_labels, t):
         # 将伪标签为 1 的样本标为淡红色, 伪标签为 -1 的样本标为淡蓝色
         plt.scatter(x_batch[pseudo_labels == 1, 0], x_batch[pseudo_labels == 1, 1], color='lightcoral', alpha=0.5)
@@ -25,38 +26,39 @@ class SelfTraining:
 
     def train(self, unlabelled_data, initial_classifier):
         print(f'Initial classifier: {initial_classifier}')
-        # initial_classifier = [0.1, 0.9]
+        initial_classifier = torch.tensor([1.1, -0.5], dtype=torch.float32)
+        # initial_classifier = [1.0, 0.25]
         beta = initial_classifier / torch.norm(initial_classifier)  # 归一化
         print(f'initial classifier after normalization: {beta}')
-        # entropy_list = [[] for _ in range(len(self.test_data))]
         # 创建 entrpoy_list 是一个形状为 (n_test, T) 的张量, 每一列表示每个测试样本在每次迭代中的熵
         entropy_list = torch.zeros((self.test_data.size(0), self.T))
+        
+        unlabelled_batches = torch.split(unlabelled_data, self.B)  # 将数据划分为 batch
+
         for t in range(self.T):
-            idx = torch.randint(0, unlabelled_data.size(0), (self.B,))
-            x_batch = unlabelled_data[idx]
-            pseudo_labels = torch.sign(torch.matmul(x_batch, beta))  # 伪标签
-            
-            # self.plot_pseudolabelled_data(x_batch, pseudo_labels, t)
-            
+            x_batch = unlabelled_batches[t]  # 取当前 batch
+            pseudo_labels = torch.sign(torch.matmul(x_batch, beta))  # 生成伪标签
+            # TODO: 计算伪标签的正确率
             grad_sum = torch.zeros_like(beta)
             for i in range(self.B):
                 pred = torch.matmul(x_batch[i], beta)
-                grad_sum += pseudo_labels[i] * x_batch[i] * (1 / self.sigma) * torch.sigmoid(-pseudo_labels[i] * pred)
-                
+                grad_sum += (1 / self.sigma) * pseudo_labels[i] * x_batch[i] * (-torch.sigmoid(-(1 / self.sigma) * pseudo_labels[i] * pred))
+
             beta -= self.eta / self.B * grad_sum
+            # print(f'Batch/iteration {t}, beta before normalize: {beta}')
             beta = beta / torch.norm(beta)  # 权重归一化
-            print(f'Iteration {t}, beta: {beta}')
-            # print(f'test data: {self.test_data[0]}')
+            print(f'Batch/iteration {t}, beta after normalize: {beta}')
+
+        # 计算测试数据的概率并保存到熵列表
             prob = torch.sigmoid(torch.matmul(self.test_data, beta))
-            # print(f'Probability of test data being in class 1: {prob}')
-            entrpoy = -prob * torch.log(prob) - (1 - prob) * torch.log(1 - prob)
-            # entropy 应该是一个形状为 (n_test,) 的 tensor, 每个元素表示每个样本的熵, 需要将 entropy 赋值给 entropy_list 的第 t 列
-            # print(f'Entropy: {entrpoy.shape}')
-            # entropy_list[:, t] = prob.squeeze()
-            entropy_list[:, t] = entrpoy.squeeze()
-            # print(f'Entropy: {entrpoy}')
-            # print(f'Probability of test data being in class 1: {prob}; its true label: {self.test_data[1][0]}')
+            # entropy = -prob * torch.log(prob) - (1 - prob) * torch.log(1 - prob)
+            # print(f'prob shape: {prob.shape}')
+            # print(f'prob: {prob}')
+            entropy_list[:, t] = prob.squeeze()
+            # entropy_list[:, t] = entropy.squeeze()
+
         return beta, entropy_list
+
 
     def plot_entropy(self, entropy_list, test_data):
         '''
@@ -67,15 +69,16 @@ class SelfTraining:
 
         n_test, T = entropy_list.shape  # 获取样本数和迭代次数
         avg_entropy = torch.mean(entropy_list, dim=0).detach().numpy()  # 计算每轮迭代的熵均值
-
+        print(f'enropy_list shape: {entropy_list.shape}')
         # 画每个样本的熵变化折线图
         plt.figure(figsize=(10, 6))
+        print(f'n_test: {n_test}')
+        print(f'enropy_list: {entropy_list}')
         for i in range(n_test):
-            # print(test_data[0][i])
-            plt.plot(range(T), entropy_list[i].detach().numpy(), label=f'Sample {i+1} with label {int(test_data[1][i])}', alpha=0.3)
+            plt.plot(range(T), entropy_list[i].detach().numpy(), label=f'Sample {i+1}: {self.test_data.numpy()[i]} with label {int(self.test_labels[i])}', alpha=0.3)
 
         # 画熵均值变化的折线图
-        plt.plot(range(T), avg_entropy, color='black', label='Average Entropy', linewidth=2)
+        # plt.plot(range(T), avg_entropy, color='black', label='Average Entropy', linewidth=2)
 
         # 图形标题和标签
         plt.title('Entropy Change Over Iterations for Test Samples', fontsize=14)

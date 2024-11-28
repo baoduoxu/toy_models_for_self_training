@@ -44,21 +44,23 @@ def analyze_entropy_trend(entropy_list, threshold=0.9):
     return sample_trends, avg_trend
 
 # 参数设置
-d=3
-mu = [2,-1,1]
+
+mu = [2,1]
 dim = len(mu)
-n_labelled = 2*d # O(d)
-n_unlabelled = 2*d*10**4 # O(d*eps^{-2}) 0.01
+n_labelled = 2*dim # O(d)
+epsilon=0.005
+n_unlabelled = int(dim*epsilon**(-2)) # O(d*eps^{-2}) 0.01
 delta = 0.9
-eta = 0.01
-T = 3000
-B = 100
+eta = 0.05
+B = int(epsilon**(-1))
+T = n_unlabelled // B
 sigma = 1.0
 
 # 生成数据集
 dataset_gen = DatasetGenerator(mu, n_labelled, n_unlabelled)
 labelled_data, labelled_labels = dataset_gen.generate_labelled()
 unlabelled_data = dataset_gen.generate_unlabelled()
+
 
 # dataset_gen.plot_data(labelled_data, labelled_labels, unlabelled_data)
 
@@ -68,13 +70,19 @@ initial_classifiers = log_reg_sgd.train(labelled_data, labelled_labels)
 
 # 生成 test_data
 # test_data = dataset_gen.generate_labelled()
-# 生成贝叶斯最优分类器附近的 test_data
-test_data = dataset_gen.generate_test_data_near_bayes_optimal_classifier(n_test=20, eps=0.01)
+# # 生成贝叶斯最优分类器附近的 test_data
+# test_data = dataset_gen.generate_test_data_near_bayes_optimal_classifier(n_test=20, eps=0.1)
 # 按照 label 给 test_data 排序
+
+# 四个测试数据:
+# [0.5,1.5] 标签为 1; [2, 0] 标签为 1; [-0.5, -1.5] 标签为 -1; [-2, 0] 标签为 -1
+test_data = torch.tensor([[1.5, 1.5], [2, 0], [0.5, -1.5], [-1.5, 0.3]], dtype=torch.float32)
+test_labels = torch.tensor([1, 1, -1, -1], dtype=torch.float32)
 
 
 # 使用无标签数据进行自训练
-self_trainer = SelfTraining(eta=eta, sigma=sigma, B=B, T=T, test_data=test_data)
+print(f'eta: {eta}, sigma: {sigma}, B: {B}, T: {T}')
+self_trainer = SelfTraining(eta=eta, sigma=sigma, B=B, T=T, test_data=test_data, test_labels=test_labels)
 final_classifier, entropy_list = self_trainer.train(unlabelled_data, initial_classifiers[0])
 
 self_trainer.plot_entropy(entropy_list, test_data)
@@ -82,10 +90,13 @@ self_trainer.plot_entropy(entropy_list, test_data)
 print(f'test data: {test_data}')
 
 # 用 final_classifier 对 test_data 进行分类, 并与真实值对比
-pred = torch.sign(torch.matmul(torch.Tensor(test_data[0]), final_classifier))
+pred = torch.sign(torch.matmul(torch.Tensor(test_data), final_classifier))
 print(f'Predictions: {pred}')
-print(f'True labels: {test_data[1]}')
-
+print(f'True labels: {test_labels}')
+# 计算正确率
+accuracy = torch.mean((pred == test_labels).float())
+print(f'Accuracy: {accuracy}')
 
 print(final_classifier)
+print(f'ininital classifier: {initial_classifiers[0]/torch.norm(initial_classifiers[0])}')
 print(f'Bayes optimal classifier: {dataset_gen.mu / torch.norm(dataset_gen.mu)}, distance between the final classifier and the Bayes optimal classifier: {torch.norm(final_classifier - dataset_gen.mu/torch.norm(dataset_gen.mu))}')

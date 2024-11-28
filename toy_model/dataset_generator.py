@@ -43,11 +43,12 @@ class DatasetGenerator:
         with open('test_data.txt', 'w') as f:
             for i in range(n_test):
                 f.write(f'{data[i][0][0].item()} {data[i][0][1].item()} {labels[i].item()}\n')
+        data = torch.cat(data, dim=0)
         return data, labels
     
     def plot_data(self, labelled_data, labelled_labels, unlabelled_data):
         # 将有标签数据分开，分别绘制红色和蓝色
-        plt.scatter(unlabelled_data[:, 0], unlabelled_data[:, 1], color='gray', alpha=0.5, label='Unlabelled')
+        # plt.scatter(unlabelled_data[:, 0], unlabelled_data[:, 1], color='gray', alpha=0.5, label='Unlabelled')
         plt.scatter(labelled_data[labelled_labels == 1, 0], labelled_data[labelled_labels == 1, 1], color='red', label='Label 1')
         plt.scatter(labelled_data[labelled_labels == -1, 0], labelled_data[labelled_labels == -1, 1], color='blue', label='Label -1')
         plt.legend()
