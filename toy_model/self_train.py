@@ -36,6 +36,7 @@ class SelfTraining:
         print(f'initial classifier after normalization: {beta}')
         # 创建 entrpoy_list 是一个形状为 (n_test, T) 的张量, 每一列表示每个测试样本在每次迭代中的熵
         entropy_list = torch.zeros((self.test_data.size(0), self.T))
+        pred_label_list = torch.zeros((self.test_data.size(0), self.T))
         
         unlabelled_batches = torch.split(unlabelled_data, self.B)  # 将数据划分为 batch
 
@@ -60,8 +61,9 @@ class SelfTraining:
             # print(f'prob: {prob}')
             # entropy_list[:, t] = prob.squeeze()
             entropy_list[:, t] = entropy.squeeze()
+            pred_label_list[:, t] = torch.sign(prob - 1/2).squeeze()
 
-        return beta, entropy_list
+        return beta, entropy_list, pred_label_list
 
 
     # def plot_entropy(self, entropy_list, test_data):
@@ -194,7 +196,7 @@ class SelfTraining:
         # entropy_df.to_csv('entropy_list.csv', index=False)
         
         
-    def plot_entropy_test(self, entropy_list, test_data, regions):
+    def plot_entropy_test(self, entropy_list, pred_label_list, test_data, regions):
         '''
         画出所有测试样本迭代过程中的熵的变化, 其中 entropy_list 是一个形状为  (n_test, T) 的张量,
         表示 n_test 个样本在 T 轮迭代过程中熵的变化. 请画出折线图, 表示这 n_test 个样本的熵的变化曲线,
@@ -209,15 +211,20 @@ class SelfTraining:
         # 创建画布
         plt.figure(figsize=(9, 6))
         
+        # 定义颜色映射
+        color_map = {1: 'blue', 2: 'orange', 3: 'green', 4: 'yellow'}
+        
         # 每个样本的熵变化折线图
         for i in range(n_test):
             plt.plot(
                 range(T), 
                 entropy_list[i].detach().numpy(), 
-                label=f'Sample {i+1}: {test_data.numpy()[i].round(3)}, region {regions[i]}, label {int(self.test_labels[i])}', 
+                label=f'sample {i+1}: {test_data.numpy()[i].round(3)}, region {regions[i]}', 
                 alpha=0.8,  # 减小透明度以增强颜色
-                linewidth=3  # 加粗线条
+                linewidth=3,  # 加粗线条
+                color=color_map[regions[i]]
             )
+            # , label {int(self.test_labels[i])}
             
             # 在折线图的末端用黑点标出最后一个熵的位置
             plt.plot(T-1, entropy_list[i][-1], 'ko', markersize=5)
@@ -241,25 +248,25 @@ class SelfTraining:
                     plt.text(
                         iteration, 
                         entropy_list[i][iteration],
-                        f'{entropy_list[i][iteration]:.2f}', 
-                        fontsize=8, 
+                        f'{int(pred_label_list[i][iteration])}', 
+                        fontsize=12, 
                         verticalalignment='bottom', 
                         horizontalalignment='left',
                         fontweight='bold'
                     )
 
-        plt.xticks(fontsize=24)
-        plt.yticks(fontsize=24)
+        plt.xticks(fontsize=20)
+        plt.yticks(fontsize=20)
         
         # 图形标题和轴标签
         # plt.title('Entropy Change Over Iterations for Test Samples', fontsize=16)
-        plt.xlabel('Number of Iteration', fontsize=24)
-        plt.ylabel('Entropy', fontsize=24)
+        plt.xlabel('Number of Iteration', fontsize=20)
+        plt.ylabel('Entropy', fontsize=20)
 
         # 设置图例，放置在图的右上角偏下
         plt.legend(
             loc='upper right', 
-            bbox_to_anchor=(1.0, 0.9),  # 将图例稍微向下移动
+            bbox_to_anchor=(1.5, 0.9),  # 将图例稍微向下移动
             fontsize=12, 
             frameon=True  # 去掉图例框线
         )

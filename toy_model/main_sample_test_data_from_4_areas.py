@@ -113,7 +113,7 @@ test_data, test_labels = test_dataset_gen.generate_labelled()
 def line_1(x):
     return (-9104 / 4138) * x
 def line_2(x):
-    return 2 * x
+    return 0.5 * x
 # 判断每个点所在的区域
 regions = []
 for point in test_data:
@@ -129,8 +129,10 @@ for point in test_data:
         regions.append(2)  # 区域2
     elif above_line_1==0 and above_line_2==0:
         regions.append(3)  # 区域3
-    else:
+    elif above_line_1==0 and above_line_2==1:
         regions.append(4)  # 区域4
+    else:
+        exit(0)
 
 # 输出结果
 print("区域分布：", regions)
@@ -145,9 +147,9 @@ print("test_labels", test_labels)
 # 使用无标签数据进行自训练
 print(f'eta: {eta}, sigma: {sigma}, B: {B}, T: {T}')
 self_trainer = SelfTraining(eta=eta, sigma=sigma, B=B, T=T, test_data=test_data, test_labels=test_labels)
-final_classifier, entropy_list = self_trainer.train(unlabelled_data, initial_classifiers[0])
+final_classifier, entropy_list, pred_label_list = self_trainer.train(unlabelled_data, initial_classifiers[0])
 
-self_trainer.plot_entropy_test(entropy_list, test_data, regions)
+self_trainer.plot_entropy_test(entropy_list, pred_label_list, test_data, regions)
 # print(analyze_entropy_trend(entropy_list))
 print(f'test data: {test_data}')
 
