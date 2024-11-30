@@ -134,11 +134,25 @@ class SelfTraining:
                 # entropy_list[i][-1] + 0.02 * (plt.ylim()[1] - plt.ylim()[0]), 
                 entropy_list[i][-1],
                 f'{entropy_list[i][-1]:.2f}', 
-                fontsize=24, 
+                fontsize=16, 
                 verticalalignment='center', 
                 horizontalalignment='right',
                 fontweight='bold'
             )
+            
+            # 标注迭代次数为 0, 50, 100, 200, 400 时的熵值，并画出这些点
+            for iteration in [0, 50, 100, 200, 400]:
+                if iteration < T:
+                    plt.plot(iteration, entropy_list[i][iteration], 'ro', markersize=5)
+                    plt.text(
+                        iteration, 
+                        entropy_list[i][iteration],
+                        f'{entropy_list[i][iteration]:.2f}', 
+                        fontsize=16, 
+                        verticalalignment='bottom', 
+                        horizontalalignment='left',
+                        fontweight='bold'
+                    )
         
         # # 画熵均值变化的折线图
         # plt.plot(
@@ -162,7 +176,7 @@ class SelfTraining:
         plt.legend(
             loc='upper right', 
             bbox_to_anchor=(1.0, 0.9),  # 将图例稍微向下移动
-            fontsize=18, 
+            fontsize=12, 
             frameon=True  # 去掉图例框线
         )
         
@@ -173,11 +187,96 @@ class SelfTraining:
         plt.tight_layout()
         plt.show()
         
-        # 将 entropy_list 转换为 DataFrame
-        entropy_df = pd.DataFrame(entropy_list.detach().numpy())
+        # # 将 entropy_list 转换为 DataFrame
+        # entropy_df = pd.DataFrame(entropy_list.detach().numpy())
 
-        # 保存为 CSV 文件
-        entropy_df.to_csv('entropy_list.csv', index=False)
+        # # 保存为 CSV 文件
+        # entropy_df.to_csv('entropy_list.csv', index=False)
+        
+        
+    def plot_entropy_test(self, entropy_list, test_data, regions):
+        '''
+        画出所有测试样本迭代过程中的熵的变化, 其中 entropy_list 是一个形状为  (n_test, T) 的张量,
+        表示 n_test 个样本在 T 轮迭代过程中熵的变化. 请画出折线图, 表示这 n_test 个样本的熵的变化曲线,
+        同时计算它们熵的每一轮迭代的平均值, 也同时画出这个均值的在每一轮迭代过程中变化的折线图.
+        '''
+        # 设置字体为 Times New Roman
+        matplotlib.rc('font', family='Times New Roman')
+        
+        n_test, T = entropy_list.shape  # 获取样本数和迭代次数
+        avg_entropy = torch.mean(entropy_list, dim=0).detach().numpy()  # 计算每轮迭代的熵均值
+
+        # 创建画布
+        plt.figure(figsize=(9, 6))
+        
+        # 每个样本的熵变化折线图
+        for i in range(n_test):
+            plt.plot(
+                range(T), 
+                entropy_list[i].detach().numpy(), 
+                label=f'Sample {i+1}: {test_data.numpy()[i].round(3)}, region {regions[i]}, label {int(self.test_labels[i])}', 
+                alpha=0.8,  # 减小透明度以增强颜色
+                linewidth=3  # 加粗线条
+            )
+            
+            # 在折线图的末端用黑点标出最后一个熵的位置
+            plt.plot(T-1, entropy_list[i][-1], 'ko', markersize=5)
+            
+            # # 在折线图的末端标注最后的熵值
+            # plt.text(
+            #     T-1-2, 
+            #     # entropy_list[i][-1] + 0.02 * (plt.ylim()[1] - plt.ylim()[0]), 
+            #     entropy_list[i][-1],
+            #     f'{entropy_list[i][-1]:.2f}', 
+            #     fontsize=12, 
+            #     verticalalignment='center', 
+            #     horizontalalignment='right',
+            #     fontweight='bold'
+            # )
+            
+            # 标注迭代次数为 0, 50, 100, 200, 400 时的熵值，并画出这些点
+            for iteration in [0, 49, 99, 199, 399]:
+                if iteration < T:
+                    plt.plot(iteration, entropy_list[i][iteration], 'ro', markersize=5)
+                    plt.text(
+                        iteration, 
+                        entropy_list[i][iteration],
+                        f'{entropy_list[i][iteration]:.2f}', 
+                        fontsize=8, 
+                        verticalalignment='bottom', 
+                        horizontalalignment='left',
+                        fontweight='bold'
+                    )
+
+        plt.xticks(fontsize=24)
+        plt.yticks(fontsize=24)
+        
+        # 图形标题和轴标签
+        # plt.title('Entropy Change Over Iterations for Test Samples', fontsize=16)
+        plt.xlabel('Number of Iteration', fontsize=24)
+        plt.ylabel('Entropy', fontsize=24)
+
+        # 设置图例，放置在图的右上角偏下
+        plt.legend(
+            loc='upper right', 
+            bbox_to_anchor=(1.0, 0.9),  # 将图例稍微向下移动
+            fontsize=12, 
+            frameon=True  # 去掉图例框线
+        )
+        
+        # 添加网格
+        plt.grid(True, linestyle='--', alpha=0.7)
+
+        # 显示图形
+        plt.tight_layout()
+        plt.show()
+        
+        
+        
+        
+        
+        
+        
 
     # def plot_entropy(self, entropy_list, test_data):
         # '''
