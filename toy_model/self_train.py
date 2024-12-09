@@ -30,7 +30,7 @@ class SelfTraining:
 
     def train(self, unlabelled_data, initial_classifier):
         print(f'Initial classifier: {initial_classifier}')
-        initial_classifier = torch.tensor([1.1, -0.5], dtype=torch.float32)
+        initial_classifier = torch.tensor([-5.38, 6.37], dtype=torch.float32)
         # initial_classifier = [1.0, 0.25]
         beta = initial_classifier / torch.norm(initial_classifier)  # 归一化
         print(f'initial classifier after normalization: {beta}')
@@ -117,8 +117,8 @@ class SelfTraining:
         # 每个样本的熵变化折线图
         for i in range(n_test):
             # 去掉红色样本
-            if i==3:
-                continue
+            # if i==3:
+            #     continue
             plt.plot(
                 range(T), 
                 entropy_list[i].detach().numpy(), 
@@ -156,15 +156,15 @@ class SelfTraining:
                         fontweight='bold'
                     )
         
-        # # 画熵均值变化的折线图
-        # plt.plot(
-        #     range(T), 
-        #     avg_entropy, 
-        #     color='black', 
-        #     label='Average Entropy', 
-        #     linewidth=4,  # 加粗线条
-        #     linestyle='--'  # 虚线表示均值
-        # )
+        # 画熵均值变化的折线图
+        plt.plot(
+            range(T), 
+            avg_entropy, 
+            color='black', 
+            label='Average Entropy', 
+            linewidth=4,  # 加粗线条
+            linestyle='--'  # 虚线表示均值
+        )
 
         plt.xticks(fontsize=24)
         plt.yticks(fontsize=24)
@@ -212,7 +212,13 @@ class SelfTraining:
         plt.figure(figsize=(9, 6))
         
         # 定义颜色映射
-        color_map = {1: 'blue', 2: 'orange', 3: 'green', 4: 'yellow'}
+        # color_map = {1: 'blue', 2: 'orange', 3: 'green', 4: 'yellow'}
+        color_map = {
+            1: '#FBE5D6',  # #FBE5D6 (251, 229, 214)
+            2: '#FFF2CC',  # #FF2CC (255, 242, 204)
+            3: '#DAE3F3',  # #DAE3F3 (218, 227, 243)
+            4: '#FFD966',  # #FFD966 (255, 217, 102)
+        }
         
         # 每个样本的熵变化折线图
         for i in range(n_test):

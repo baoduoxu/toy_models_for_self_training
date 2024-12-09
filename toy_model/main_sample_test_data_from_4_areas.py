@@ -46,7 +46,8 @@ def analyze_entropy_trend(entropy_list, threshold=0.9):
 
 # 参数设置
 
-mu = [2,1]
+# mu = [2,1]
+mu = [3.023529, 1]
 dim = len(mu)
 n_labelled = 2*dim # O(d)
 epsilon=0.005
@@ -105,34 +106,51 @@ initial_classifiers = log_reg_sgd.train(labelled_data, labelled_labels)
 # print(test_data)
 
 
-test_dataset_gen = DatasetGenerator(mu, 10, n_unlabelled)
+test_sample_num = 4
+
+test_dataset_gen = DatasetGenerator(mu, test_sample_num, n_unlabelled)
 
 test_data, test_labels = test_dataset_gen.generate_labelled()
 
+test_data = torch.tensor([[2.2, -6.1],
+        [3.2, 5.9],
+        [-6.9, -1.7],
+        [-6.5, 3.5]])
 
-def line_1(x):
-    return (-9104 / 4138) * x
-def line_2(x):
-    return 0.5 * x
-# 判断每个点所在的区域
-regions = []
-for point in test_data:
-    x, y = point
-    # 判断与直线的位置关系
-    above_line_1 = (y > line_1(x))
-    above_line_2 = (y > line_2(x))
+test_labels = torch.tensor([ -1, 1, 1, 1])
+regions = [1, 2, 3, 4]
 
-    # 区域判断
-    if above_line_1==1 and above_line_2==1:
-        regions.append(1)  # 区域1
-    elif above_line_1==1 and above_line_2==0:
-        regions.append(2)  # 区域2
-    elif above_line_1==0 and above_line_2==0:
-        regions.append(3)  # 区域3
-    elif above_line_1==0 and above_line_2==1:
-        regions.append(4)  # 区域4
-    else:
-        exit(0)
+
+print(test_data)
+
+print(test_labels)
+
+# exit(0)
+
+
+# def line_1(x):
+#     return -0.84458398 * x # beta_init
+# def line_2(x):
+#     return 3.02352941 * x # mu
+# # 判断每个点所在的区域
+# regions = []
+# for point in test_data:
+#     x, y = point
+#     # 判断与直线的位置关系
+#     above_line_1 = (y > line_1(x))
+#     above_line_2 = (y > line_2(x))
+
+#     # 区域判断
+#     if above_line_1==1 and above_line_2==1:
+#         regions.append(1)  # 区域1
+#     elif above_line_1==1 and above_line_2==0:
+#         regions.append(2)  # 区域2
+#     elif above_line_1==0 and above_line_2==0:
+#         regions.append(3)  # 区域3
+#     elif above_line_1==0 and above_line_2==1:
+#         regions.append(4)  # 区域4
+#     else:
+#         exit(0)
 
 # 输出结果
 print("区域分布：", regions)
