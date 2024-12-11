@@ -47,7 +47,7 @@ def analyze_entropy_trend(entropy_list, threshold=0.9):
 # 参数设置
 
 # mu = [2,1]
-mu = [3.023529, 1]
+mu = [1, 3.023529]
 dim = len(mu)
 n_labelled = 2*dim # O(d)
 epsilon=0.005
@@ -55,7 +55,7 @@ n_unlabelled = int(dim*epsilon**(-2)) # O(d*eps^{-2}) 0.01
 delta = 0.9
 eta = 0.05
 B = int(epsilon**(-1))
-T = n_unlabelled // B
+T = n_unlabelled // B   # iteration num: 400
 sigma = 1.0
 
 # 生成数据集
@@ -108,16 +108,21 @@ initial_classifiers = log_reg_sgd.train(labelled_data, labelled_labels)
 
 test_sample_num = 4
 
-test_dataset_gen = DatasetGenerator(mu, test_sample_num, n_unlabelled)
+# test_dataset_gen = DatasetGenerator(mu, test_sample_num, n_unlabelled)
 
-test_data, test_labels = test_dataset_gen.generate_labelled()
+# test_data, test_labels = test_dataset_gen.generate_labelled()
 
 test_data = torch.tensor([[2.2, -6.1],
         [3.2, 5.9],
         [-6.9, -1.7],
-        [-6.5, 3.5]])
+        [6.5, -3.5]])
 
-test_labels = torch.tensor([ -1, 1, 1, 1])
+# test_data = torch.tensor([[1, 3.023529], # 一二改成 beta_init 和 mu, 看不在区域中央的熵的变化情况
+#         [-5.38, 6.37],
+#         [-6.9, -1.7],
+#         [6.5, -3.5]])
+
+test_labels = torch.tensor([ -1, 1, -1, 1])
 regions = [1, 2, 3, 4]
 
 
@@ -160,14 +165,28 @@ print("test_data", test_data.shape)
 print("test_labels", test_labels)
 
 
+data_for_avg_sample_num = 1000
+
+dataset_for_avg = DatasetGenerator(mu, data_for_avg_sample_num, n_unlabelled)
+
+data_for_avg, labels_for_avg = dataset_for_avg.generate_labelled()
+
+# print("---------------------------------------------")
+
+# print(data_for_avg.shape)
+# print(labels_for_avg.shape)
+# exit(0)
+
+
 
 
 # 使用无标签数据进行自训练
 print(f'eta: {eta}, sigma: {sigma}, B: {B}, T: {T}')
-self_trainer = SelfTraining(eta=eta, sigma=sigma, B=B, T=T, test_data=test_data, test_labels=test_labels)
+self_trainer = SelfTraining(eta=eta, sigma=sigma, B=B, T=T, test_data=test_data, test_labels=test_labels, data_for_avg=data_for_avg, labels_for_avg=labels_for_avg)
 final_classifier, entropy_list, pred_label_list = self_trainer.train(unlabelled_data, initial_classifiers[0])
 
-self_trainer.plot_entropy_test(entropy_list, pred_label_list, test_data, regions)
+# 绘制四类样本的折线图
+self_trainer.plot_entropy_test(entropy_list, pred_label_list, test_data, regions, test_labels, data_for_avg, labels_for_avg)
 # print(analyze_entropy_trend(entropy_list))
 print(f'test data: {test_data}')
 

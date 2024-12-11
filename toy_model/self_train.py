@@ -9,7 +9,7 @@ import pandas as pd
 
 
 class SelfTraining:
-    def __init__(self, eta, sigma, B, T, test_data, test_labels):
+    def __init__(self, eta, sigma, B, T, test_data, test_labels, data_for_avg, labels_for_avg):
         self.eta = eta
         self.sigma = sigma
         self.B = B
@@ -19,6 +19,11 @@ class SelfTraining:
         # self.test_data = torch.stack(test_data[0], dim=0)
         self.test_data = test_data
         self.test_labels = test_labels
+        self.data_for_avg = data_for_avg
+        self.labels_for_avg = labels_for_avg
+        self.final_classifier = None
+        self.avg_entropy_list = None
+        
     def plot_pseudolabelled_data(self, x_batch, pseudo_labels, t):
         # 将伪标签为 1 的样本标为淡红色, 伪标签为 -1 的样本标为淡蓝色
         plt.scatter(x_batch[pseudo_labels == 1, 0], x_batch[pseudo_labels == 1, 1], color='lightcoral', alpha=0.5)
@@ -37,6 +42,7 @@ class SelfTraining:
         # 创建 entrpoy_list 是一个形状为 (n_test, T) 的张量, 每一列表示每个测试样本在每次迭代中的熵
         entropy_list = torch.zeros((self.test_data.size(0), self.T))
         pred_label_list = torch.zeros((self.test_data.size(0), self.T))
+        avg_entropy_list = torch.zeros((self.T))
         
         unlabelled_batches = torch.split(unlabelled_data, self.B)  # 将数据划分为 batch
 
@@ -52,9 +58,9 @@ class SelfTraining:
             beta -= self.eta / self.B * grad_sum
             # print(f'Batch/iteration {t}, beta before normalize: {beta}')
             beta = beta / torch.norm(beta)  # 权重归一化
-            print(f'Batch/iteration {t}, beta after normalize: {beta}')
+            print(f'Batch/iteration {t+1}, beta after normalize: {beta}')
 
-        # 计算测试数据的概率并保存到熵列表
+            # 计算测试数据的概率并保存到熵列表
             prob = torch.sigmoid(torch.matmul(self.test_data, beta))
             entropy = -prob * torch.log(prob) - (1 - prob) * torch.log(1 - prob)
             # print(f'prob shape: {prob.shape}')
@@ -62,6 +68,14 @@ class SelfTraining:
             # entropy_list[:, t] = prob.squeeze()
             entropy_list[:, t] = entropy.squeeze()
             pred_label_list[:, t] = torch.sign(prob - 1/2).squeeze()
+            
+            # 计算大量数据在训练中熵的平均值
+            prob_for_avg = torch.sigmoid(torch.matmul(self.data_for_avg, beta))
+            entropy_for_avg = torch.mean(-prob_for_avg * torch.log(prob_for_avg) - (1 - prob_for_avg) * torch.log(1 - prob_for_avg), dim=0)
+            avg_entropy_list[t] = entropy_for_avg.squeeze()
+            
+        self.final_classifier = beta
+        self.avg_entropy_list = avg_entropy_list
 
         return beta, entropy_list, pred_label_list
 
@@ -92,6 +106,20 @@ class SelfTraining:
     #     plt.legend(loc='upper right', fontsize=10)
     #     plt.grid(True)
     #     plt.show()
+    
+    
+    def cal_e_for_avg(self, data_for_avg, labels_for_avg):
+        
+        entropy_list = torch.zeros((data_for_avg.size(0)))
+        
+        for i in range(len(data_for_avg)):
+            prob = torch.sigmoid(torch.matmul(data_for_avg[i], self.final_classifier))
+            entropy = -prob * torch.log(prob) - (1 - prob) * torch.log(1 - prob)
+            entropy_list[i] = entropy.squeeze()
+            
+        avg_entropy = torch.mean(entropy_list)
+        return avg_entropy
+        
 
     def plot_entropy(self, entropy_list, test_data):
         '''
@@ -196,7 +224,7 @@ class SelfTraining:
         # entropy_df.to_csv('entropy_list.csv', index=False)
         
         
-    def plot_entropy_test(self, entropy_list, pred_label_list, test_data, regions):
+    def plot_entropy_test(self, entropy_list, pred_label_list, test_data, regions, test_labels, data_for_avg, labels_for_avg):
         '''
         画出所有测试样本迭代过程中的熵的变化, 其中 entropy_list 是一个形状为  (n_test, T) 的张量,
         表示 n_test 个样本在 T 轮迭代过程中熵的变化. 请画出折线图, 表示这 n_test 个样本的熵的变化曲线,
@@ -206,18 +234,32 @@ class SelfTraining:
         matplotlib.rc('font', family='Times New Roman')
         
         n_test, T = entropy_list.shape  # 获取样本数和迭代次数
-        avg_entropy = torch.mean(entropy_list, dim=0).detach().numpy()  # 计算每轮迭代的熵均值
+        # avg_entropy = torch.mean(entropy_list, dim=0).detach().numpy()  # 计算四个样本的熵平均值, 无法代表整体数据
+        # avg_entropy = self.cal_e_for_avg(data_for_avg, labels_for_avg)  # 使用最优分类器计算大量数据的熵均值
+        # 最终选择使用 self.avg_entropy_list, 得到迭代过程中大量数据的熵均值
 
         # 创建画布
-        plt.figure(figsize=(9, 6))
+        plt.figure(figsize=(9, 7))
         
         # 定义颜色映射
         # color_map = {1: 'blue', 2: 'orange', 3: 'green', 4: 'yellow'}
+        # color_map = { # 莫兰迪配色 (雾)
+        #     1: '#FBE5D6',  # #FBE5D6 (251, 229, 214)
+        #     2: '#FFF2CC',  # #FFF2CC (255, 242, 204)
+        #     3: '#DAE3F3',  # #DAE3F3 (218, 227, 243)
+        #     4: '#FFD966',  # #FFD966 (255, 217, 102)
+        # }
+        # color_map = {
+        #     1: 'pink',
+        #     2: 'yellow',
+        #     3: 'blue',
+        #     4: 'orange'
+        # }
         color_map = {
-            1: '#FBE5D6',  # #FBE5D6 (251, 229, 214)
-            2: '#FFF2CC',  # #FF2CC (255, 242, 204)
-            3: '#DAE3F3',  # #DAE3F3 (218, 227, 243)
-            4: '#FFD966',  # #FFD966 (255, 217, 102)
+            1: '#FFC0CB', # (255, 192, 203), 粉红色
+            2: '#FFFF00', # (255, 255, 0), 黄色
+            3: '#03DCED', # (3, 220, 237), 蓝色
+            4: '#FFA500', # (255, 165, 0), 橙色
         }
         
         # 每个样本的熵变化折线图
@@ -225,7 +267,8 @@ class SelfTraining:
             plt.plot(
                 range(T), 
                 entropy_list[i].detach().numpy(), 
-                label=f'sample {i+1}: {test_data.numpy()[i].round(3)}, region {regions[i]}', 
+                label=f'Region: {regions[i]}, GT: {test_labels[i]}, Coordinates: {test_data.numpy()[i].round(3)}',
+                # label=f'sample {i+1}: {test_data.numpy()[i].round(3)}, region {regions[i]}', 
                 alpha=0.8,  # 减小透明度以增强颜色
                 linewidth=3,  # 加粗线条
                 color=color_map[regions[i]]
@@ -255,11 +298,22 @@ class SelfTraining:
                         iteration, 
                         entropy_list[i][iteration],
                         f'{int(pred_label_list[i][iteration])}', 
-                        fontsize=12, 
+                        fontsize=14, 
                         verticalalignment='bottom', 
                         horizontalalignment='left',
                         fontweight='bold'
                     )
+                    
+        # 画熵均值变化的折线图
+        plt.plot(
+            range(T), 
+            self.avg_entropy_list,
+            label=f'Average entropy of 1000 samples', 
+            alpha=0.8,  # 减小透明度以增强颜色
+            linewidth=3,  # 加粗线条
+            color='black'
+        )
+                
 
         plt.xticks(fontsize=20)
         plt.yticks(fontsize=20)
@@ -272,8 +326,8 @@ class SelfTraining:
         # 设置图例，放置在图的右上角偏下
         plt.legend(
             loc='upper right', 
-            bbox_to_anchor=(1.5, 0.9),  # 将图例稍微向下移动
-            fontsize=12, 
+            bbox_to_anchor=(1.0, 1.0),  # 将图例稍微向上移动
+            fontsize=14, 
             frameon=True  # 去掉图例框线
         )
         
